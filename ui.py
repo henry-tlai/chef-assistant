@@ -35,16 +35,25 @@ if user_input:
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    response = requests.post(
-        API_URL,
-        json={"message": user_input, "session_id": st.session_state.session_id},  
-        timeout=90,
-    )
-    data = response.json()
+    try:
+        response = requests.post(
+            API_URL,
+            json={"message": user_input, "session_id": st.session_state.session_id},
+            timeout=90,
+        )
+        # turns 4xx/5xx replies into exceptions
+        response.raise_for_status()      
+        data = response.json()
+    except requests.RequestException:
+        st.error("Server is currently experiencing some issues.")   
+        # end this run so nothing below executes              
+        st.stop()                        
 
-    st.session_state.session_id = data["session_id"]             
+    st.session_state.session_id = data["session_id"]
 
     reply = data["reply"]
     st.session_state.messages.append({"role": "assistant", "content": reply})
     with st.chat_message("assistant"):
         st.markdown(reply)
+
+    st.rerun()                             # blank 2: rerun the script so the sidebar reloads
