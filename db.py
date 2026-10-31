@@ -21,7 +21,6 @@ def save_favorite(title, recipe):
             (title, recipe),
         )
 
-
 def list_favorites():
     with sqlite3.connect(DB_PATH) as conn:
         rows = conn.execute("SELECT id, title FROM favorites").fetchall()
@@ -34,6 +33,14 @@ def get_favorite(favorite_id):
             (favorite_id,),                                              
         ).fetchone()
     return row
+
+def delete_favorite(favorite_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.execute(
+            "DELETE FROM favorites WHERE id = ?",
+            (favorite_id,),
+        )
+    return cur.rowcount > 0
 
 if __name__ == "__main__":
     init_db()

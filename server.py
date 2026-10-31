@@ -1,8 +1,8 @@
 from uuid import uuid4
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from agent import chat
-from db import init_db, list_favorites
+from db import init_db, list_favorites, delete_favorite
 
 init_db()
 app = FastAPI()
@@ -36,3 +36,10 @@ def chat_endpoint(req: ChatRequest):
 def favorites_endpoint():
     rows = list_favorites()    
     return [{"id": row_id, "title": title} for row_id, title in rows]
+
+@app.delete("/favorites/{favorite_id}")
+def delete_favorite_endpoint(favorite_id: int):
+    deleted = delete_favorite(favorite_id)
+    if not deleted:                                   
+        raise HTTPException(status_code=404, detail="Favorite not found")
+    return {"deleted": favorite_id}

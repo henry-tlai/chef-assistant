@@ -15,7 +15,16 @@ with st.sidebar:
         favs = []
         st.caption("Can't reach the server.")
     for f in favs:
-        st.write(f"{f['id']}. {f['title']}")
+        col_title, col_btn = st.columns([4, 1])
+        col_title.write(f"{f['id']}. {f['title']}")
+        if col_btn.button("x", key=f"dSel_{f['id']}"):
+            try:
+                r = requests.delete(f"{FAV_URL}/{f["id"]}", timeout=10)   # blank
+                r.raise_for_status()
+            except requests.RequestException:
+                st.error("Couldn't delete that one.")
+            else:
+                st.rerun()
 
 # Things that must survive reruns
 if "messages" not in st.session_state:
@@ -56,4 +65,4 @@ if user_input:
     with st.chat_message("assistant"):
         st.markdown(reply)
 
-    st.rerun()                             # blank 2: rerun the script so the sidebar reloads
+    st.rerun()                     
