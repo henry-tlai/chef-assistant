@@ -2,7 +2,8 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from agent import chat
-from db import init_db, list_favorites, delete_favorite
+from db import init_db, list_favorites, delete_favorite, save_messages, load_messages
+from google.genai import types
 
 init_db()
 app = FastAPI()
@@ -25,12 +26,18 @@ def chat_endpoint(req: ChatRequest):
     session_id = req.session_id or str(uuid4())
 
     if session_id not in sessions:
-        sessions[session_id] = []     
+        saved = load_messages(session_id)
+        sessions[session_id] = [types.Content.model_validate_json(s) for s in saved]  
 
     history = sessions[session_id]
-    reply = chat(history, req.message)                 
+    count_before = len(history)
 
-    return ChatResponse(reply=reply, session_id=session_id)  
+    reply = chat(history, req.message)
+
+    new_messages = history[count_before:]                                    
+    save_messages(session_id, [m.model_dump_json(exclude_none=True) for m in new_messages])  
+
+    return ChatResponse(reply=reply, session_id=session_id)
 
 @app.get("/favorites")
 def favorites_endpoint():
