@@ -8,18 +8,24 @@ st.title("Chef Assistant")
 
 with st.sidebar:
     st.header("Favorites")
-    st.button("Refresh")    # clicking any button reruns the script, which reloads the list
+    st.button("Refresh") 
     try:
         favs = requests.get(FAV_URL, timeout=10).json()
     except requests.RequestException:
         favs = []
         st.caption("Can't reach the server.")
+
+    if st.button("New chat"):
+        st.session_state.messages = []
+        st.session_state.session_id = None 
+        st.rerun()
+
     for f in favs:
         col_title, col_btn = st.columns([4, 1])
         col_title.write(f"{f['id']}. {f['title']}")
         if col_btn.button("x", key=f"dSel_{f['id']}"):
             try:
-                r = requests.delete(f"{FAV_URL}/{f["id"]}", timeout=10)   # blank
+                r = requests.delete(f"{FAV_URL}/{f['id']}", timeout=10)
                 r.raise_for_status()
             except requests.RequestException:
                 st.error("Couldn't delete that one.")
