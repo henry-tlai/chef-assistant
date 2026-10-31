@@ -2,8 +2,20 @@ import requests
 import streamlit as st
 
 API_URL = "http://127.0.0.1:8000/chat"
+FAV_URL = "http://127.0.0.1:8000/favorites"  
 
 st.title("Chef Assistant")
+
+with st.sidebar:
+    st.header("Favorites")
+    st.button("Refresh")    # clicking any button reruns the script, which reloads the list
+    try:
+        favs = requests.get(FAV_URL, timeout=10).json()
+    except requests.RequestException:
+        favs = []
+        st.caption("Can't reach the server.")
+    for f in favs:
+        st.write(f"{f['id']}. {f['title']}")
 
 # Things that must survive reruns
 if "messages" not in st.session_state:

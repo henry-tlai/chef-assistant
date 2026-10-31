@@ -2,7 +2,7 @@ from uuid import uuid4
 from fastapi import FastAPI
 from pydantic import BaseModel
 from agent import chat
-from db import init_db
+from db import init_db, list_favorites
 
 init_db()
 app = FastAPI()
@@ -31,3 +31,8 @@ def chat_endpoint(req: ChatRequest):
     reply = chat(history, req.message)                 
 
     return ChatResponse(reply=reply, session_id=session_id)  
+
+@app.get("/favorites")
+def favorites_endpoint():
+    rows = list_favorites()    
+    return [{"id": row_id, "title": title} for row_id, title in rows]
