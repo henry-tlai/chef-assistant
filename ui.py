@@ -3,6 +3,7 @@ import streamlit as st
 
 API_URL = "http://127.0.0.1:8000/chat"
 FAV_URL = "http://127.0.0.1:8000/favorites"  
+HIST_URL = "http://127.0.0.1:8000/history"
 
 st.title("Chef Assistant")
 
@@ -18,6 +19,7 @@ with st.sidebar:
     if st.button("New chat"):
         st.session_state.messages = []
         st.session_state.session_id = None 
+        st.query_params.clear()
         st.rerun()
 
     for f in favs:
@@ -35,8 +37,16 @@ with st.sidebar:
 # Things that must survive reruns
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
 if "session_id" not in st.session_state:
-    st.session_state.session_id = None
+    st.session_state.session_id = st.query_params.get("session")
+    if st.session_state.session_id:
+        try:
+            r = requests.get(f"{HIST_URL}/{st.session_state.session_id}", timeout=10)
+            r.raise_for_status()
+            st.session_state.messages = r.json()
+        except requests.RequestException:
+            st.session_state.messages = []
 
 # Redraw the conversation so far
 for msg in st.session_state.messages:
@@ -65,6 +75,7 @@ if user_input:
         st.stop()                        
 
     st.session_state.session_id = data["session_id"]
+    st.query_params["session"] = st.session_state.session_id
 
     reply = data["reply"]
     st.session_state.messages.append({"role": "assistant", "content": reply})

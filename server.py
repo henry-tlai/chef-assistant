@@ -44,6 +44,19 @@ def favorites_endpoint():
     rows = list_favorites()    
     return [{"id": row_id, "title": title} for row_id, title in rows]
 
+@app.get("/history/{session_id}")
+def history_endpoint(session_id: str):
+    saved = load_messages(session_id)
+    messages = []
+    for s in saved:
+        content = types.Content.model_validate_json(s)
+        text = "".join(p.text for p in (content.parts or []) if p.text)
+        if not text:
+            continue                                
+        role = "assistant" if content.role == "model" else "user"    
+        messages.append({"role": role, "content": text})
+    return messages
+
 @app.delete("/favorites/{favorite_id}")
 def delete_favorite_endpoint(favorite_id: int):
     deleted = delete_favorite(favorite_id)
