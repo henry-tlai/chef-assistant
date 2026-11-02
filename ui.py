@@ -36,14 +36,28 @@ with st.sidebar:
         convs = requests.get(CONV_URL, timeout=10).json()
     except requests.RequestException:
         convs = []
+
     for c in convs:
         sid = c["session_id"]
+        col_chat, col_del = st.columns([5, 1])
         label = ("> " if sid == st.session_state.session_id else "") + c["title"]
-        if st.button(label, key=f"chat_{sid}"):
+        if col_chat.button(label, key=f"chat_{sid}"):
             st.session_state.session_id = sid
             st.session_state.messages = load_history(sid)
             st.query_params["session"] = sid
             st.rerun()
+        if col_del.button("x", key=f"delchat_{sid}"):
+            try:
+                r = requests.delete(f"{CONV_URL}/{sid}", timeout=10)
+                r.raise_for_status()
+            except requests.RequestException:
+                st.error("Couldn't delete that chat.")
+            else:
+                if sid == st.session_state.session_id:
+                    st.session_state.messages = []
+                    st.session_state.session_id = None
+                    st.query_params.clear()
+                st.rerun()
 
     st.header("Favorites")
     st.button("Refresh")
@@ -55,7 +69,7 @@ with st.sidebar:
 
     for f in favs:
         col_title, col_btn = st.columns([4, 1])
-        col_title.write(f"{f['id']}. {f['title']}")
+        col_title.write(f"{f['title']}")
         if col_btn.button("x", key=f"dSel_{f['id']}"):
             try:
                 r = requests.delete(f"{FAV_URL}/{f['id']}", timeout=10)
