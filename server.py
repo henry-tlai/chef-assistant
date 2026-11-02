@@ -2,7 +2,7 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from agent import chat
-from db import init_db, list_favorites, delete_favorite, save_messages, load_messages, list_conversations
+from db import init_db, list_favorites, delete_favorite, save_messages, load_messages, list_conversations, delete_conversation
 from google.genai import types
 
 init_db()
@@ -77,3 +77,11 @@ def conversations_endpoint():
         title = text[:TITLE_LENGTH] + ("..." if len(text) > TITLE_LENGTH else "")
         result.append({"session_id": session_id, "title": title or "Untitled chat"})
     return result
+
+@app.delete("/conversations/{session_id}")
+def delete_conversation_endpoint(session_id: str):
+    deleted = delete_conversation(session_id)
+    sessions.pop(session_id, None)                    # blank 2
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"deleted": session_id}
