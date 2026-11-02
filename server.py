@@ -2,13 +2,14 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from agent import chat
-from db import init_db, list_favorites, delete_favorite, save_messages, load_messages
+from db import init_db, list_favorites, delete_favorite, save_messages, load_messages, list_conversations
 from google.genai import types
 
 init_db()
 app = FastAPI()
 
 sessions = {}   # session_id -> that conversation's history list
+TITLE_LENGTH = 30
 
 
 class ChatRequest(BaseModel):
@@ -63,3 +64,16 @@ def delete_favorite_endpoint(favorite_id: int):
     if not deleted:                                   
         raise HTTPException(status_code=404, detail="Favorite not found")
     return {"deleted": favorite_id}
+
+@app.get("/conversations")
+def conversations_endpoint():
+    result = []
+    for session_id, first_json in list_conversations():
+        try:
+            content = types.Content.model_validate_json(first_json)
+        except Exception:
+            continue                      # skip rows that aren't real messages
+        text = "".join(p.text for p in (content.parts or []) if p.text)
+        title = text[:TITLE_LENGTH] + ("..." if len(text) > TITLE_LENGTH else "")
+        result.append({"session_id": session_id, "title": title or "Untitled chat"})
+    return result

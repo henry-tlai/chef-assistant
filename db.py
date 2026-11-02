@@ -56,7 +56,6 @@ def save_messages(session_id, json_messages):
             [(session_id, m) for m in json_messages],
         )
 
-
 def load_messages(session_id):
     with sqlite3.connect(DB_PATH) as conn:
         rows = conn.execute(
@@ -64,6 +63,20 @@ def load_messages(session_id):
             (session_id,),
         ).fetchall()
     return [row[0] for row in rows]
+
+def list_conversations():
+    with sqlite3.connect(DB_PATH) as conn:
+        rows = conn.execute("""
+            SELECT m.session_id, m.content
+            FROM messages m
+            JOIN (
+                SELECT session_id, MIN(id) AS first_id, MAX(id) AS last_id
+                FROM messages
+                GROUP BY session_id                
+            ) g ON m.id = g.first_id
+            ORDER BY g.last_id DESC           
+        """).fetchall()
+    return rows
 
 if __name__ == "__main__":
     init_db()
