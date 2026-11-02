@@ -1,19 +1,26 @@
 from google.genai import types
-from llm import ask_model
+from llm import ask_model, ask_model_stream
 from prompts import SYSTEM_PROMPT
 from tools import TOOLS
 
-
-def chat(history, user_message):
-    """Run one user turn through the agent and return the chef's reply as text."""
+def chat_stream(history, user_message):
+    """Yield the chef's reply text in pieces as it's generated."""
     history.append(types.Content(role="user", parts=[types.Part(text=user_message)]))
 
     while True:
-        reply = ask_model(history, SYSTEM_PROMPT, list(TOOLS.values()))
+        parts = []
+        for chunk in ask_model_stream(history, SYSTEM_PROMPT, list(TOOLS.values())):
+            if not chunk.candidates or not chunk.candidates[0].content:
+                continue
+            for p in chunk.candidates[0].content.parts or []:
+                parts.append(p)
+                if p.text and not p.thought:
+                    yield p.text                       
+                    
+        reply = types.Content(role="model", parts=parts)
         history.append(reply)
 
-        calls = [p.function_call for p in reply.parts if p.function_call]
-
+        calls = [p.function_call for p in parts if p.function_call]
         if not calls:
             break
 
@@ -29,4 +36,5 @@ def chat(history, user_message):
                 )
             )
 
-    return  "".join(p.text for p in reply.parts if p.text)   # blank: the chef's final text
+def chat(history, user_message):
+    return "".join(chat_stream(history, user_message))
