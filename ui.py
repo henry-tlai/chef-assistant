@@ -5,6 +5,7 @@ API_URL = "http://127.0.0.1:8000/chat"
 FAV_URL = "http://127.0.0.1:8000/favorites"
 HIST_URL = "http://127.0.0.1:8000/history"
 CONV_URL = "http://127.0.0.1:8000/conversations"
+STREAM_URL = "http://127.0.0.1:8000/chat/stream"
 
 def load_history(session_id):
     try:
@@ -93,22 +94,22 @@ if user_input:
 
     try:
         response = requests.post(
-            API_URL,
+            STREAM_URL,
             json={"message": user_input, "session_id": st.session_state.session_id},
+            stream=True,
             timeout=90,
         )
         response.raise_for_status()
-        data = response.json()
     except requests.RequestException:
         st.error("Server is currently experiencing some issues.")
         st.stop()
 
-    st.session_state.session_id = data["session_id"]
+    response.encoding = "utf-8"
+    st.session_state.session_id = response.headers["X-Session-Id"]  
     st.query_params["session"] = st.session_state.session_id
 
-    reply = data["reply"]
-    st.session_state.messages.append({"role": "assistant", "content": reply})
     with st.chat_message("assistant"):
-        st.markdown(reply)
+        reply = st.write_stream(response.iter_content(chunk_size=None, decode_unicode=True))                        
 
+    st.session_state.messages.append({"role": "assistant", "content": reply})
     st.rerun()
