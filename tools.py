@@ -2,9 +2,11 @@ import db
 
 
 def save_favorite(title: str, recipe: str) -> str:
-    """Save a recipe to the user's favorites. Use this when the user asks to
-    save, favorite, or keep a recipe. title is the dish name; recipe is the
-    full recipe text, including ingredients and numbered steps."""
+    """Save a recipe to the user's favorites. Use this ONLY when the user's
+    latest message explicitly asks to save, favorite, or keep a recipe. Never
+    call this just because you wrote a recipe or the user said they liked it;
+    offer to save it and wait for a yes instead. title is the dish name; recipe
+    is the full recipe text, including ingredients and numbered steps."""
     db.save_favorite(title, recipe)
     return f"Saved '{title}' to favorites."
 
