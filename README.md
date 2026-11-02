@@ -4,6 +4,8 @@ A conversational AI chef you can chat with in the terminal or in a web app. Talk
 
 Built in Python with a hand-written agent loop (no agent framework), a FastAPI backend, and a Streamlit chat UI, so every layer of how the app works is visible in the code.
 
+<!-- Add a screenshot of the web app here -->
+
 ---
 
 ## Features
@@ -11,9 +13,10 @@ Built in Python with a hand-written agent loop (no agent framework), a FastAPI b
 - **Casual conversation.** The chef chats like a friend and suggests a dish when the moment is right.
 - **Consistent recipes.** Title, time and servings, ingredients, and numbered steps with short explanations of why.
 - **Cooking mode.** Walks you through a recipe one step at a time.
-- **Favorites.** Save a recipe, list your saved recipes, and reopen one by its number. Stored in SQLite, so it persists between sessions.
-- **Web UI.** Streamlit chat page with a favorites sidebar that updates after every reply and a delete button for each saved recipe.
-- **REST API.** A FastAPI backend any client can use, with separate conversation history per session.
+- **Streaming replies.** The chef's answer appears as it is written instead of after a long pause.
+- **Favorites.** Save a recipe on request, list your saved recipes, reopen one, and delete one from the sidebar. Stored in SQLite.
+- **Saved conversations.** Chats persist across server restarts and page reloads, with a sidebar list to switch between or delete past chats.
+- **REST API.** A FastAPI backend any client can use.
 
 ---
 
@@ -35,11 +38,11 @@ Built in Python with a hand-written agent loop (no agent framework), a FastAPI b
 
 ```
 chef-assistant/
-├── agent.py           # chat(): runs one user turn through the agent loop
+├── agent.py           # chat_stream() and chat(): the agent loop
 ├── llm.py             # the only file that talks to the model
 ├── prompts.py         # the chef's system prompt
 ├── tools.py           # tools the model can call
-├── db.py              # SQLite helpers for favorites
+├── db.py              # SQLite helpers for favorites and messages
 ├── server.py          # FastAPI backend (HTTP endpoints)
 ├── ui.py              # Streamlit chat UI (calls the backend)
 ├── main.py            # terminal version (still works)
@@ -65,7 +68,7 @@ Chef: Alright, how about one-pan garlic butter chicken and rice...
 You: save that one
 Chef: Done, it's in your favorites.
 
-You: let's cook number 1
+You: let's cook the garlic butter chicken
 Chef: Step 1: Season the chicken with salt, pepper, and Italian seasoning...
       Tell me when you're ready for the next step.
 ```
@@ -115,7 +118,7 @@ uvicorn server:app --reload
 streamlit run ui.py
 ```
 
-The chat page opens at `http://localhost:8501`. The backend's interactive API docs are at `http://127.0.0.1:8000/docs`.
+The chat page opens at `http://localhost:8501`. The backend's interactive API docs are at `http://127.0.0.1:8000/docs`. Run both commands from the project folder, since the database path is relative.
 
 ### Terminal version
 
@@ -131,15 +134,15 @@ Type `quit` or `exit` to leave.
 
 ```
 Streamlit UI (ui.py)
-     │  POST /chat  {"message": "...", "session_id": "..."}
+     │  POST /chat/stream  {"message": "...", "session_id": "..."}
      ▼
-FastAPI (server.py) ── finds this session's history ──► chat() (agent.py)
-     ▲                                                       │
-     │  {"reply": "...", "session_id": "..."}                ▼
-     └──────────────────────────────────────  agent loop ► Gemini (llm.py)
-                                                   │
-                                                   ▼
-                                             tools.py ► db.py ► SQLite
+FastAPI (server.py) ── loads this session's history ──► chat_stream() (agent.py)
+     ▲                                                        │
+     │  reply text in pieces + X-Session-Id header            ▼
+     └───────────────────────────────────────────  agent loop ► Gemini (llm.py)
+                                                         │
+                                                         ▼
+                                                   tools.py ► db.py ► SQLite
 ```
 
 ### The agent loop
@@ -150,24 +153,27 @@ An agent is a loop: the model decides whether to answer or call a tool, sees the
 Add user message to history ──► Send history + system prompt + tools to the model
                                           │
                                           ▼
+                       Stream the reply, passing text along as it arrives
+                                          │
+                                          ▼
                               Did the model ask to call a tool?
                                  │                    │
                                 yes                   no
                                  │                    │
-                      Run the tool in Python     Return the reply
+                      Run the tool in Python     Finish the reply
                       Add the result to history
                       and ask the model again
 ```
 
-The model never runs code itself. It asks for a tool by name, the code looks it up in the `TOOLS` registry, runs it, and sends the result back.
+The model never runs code itself. It asks for a tool by name, the code looks it up in the `TOOLS` registry, runs it, and sends the result back. Every part of the model's reply, including tool requests, is kept in the history exactly as it was sent.
 
 ### Tools available to the chef
 
 | Tool | What it does |
 |---|---|
-| `save_favorite` | Saves a recipe to the favorites database |
-| `list_favorites` | Lists saved recipes with their numbers |
-| `get_favorite` | Loads one saved recipe by number so you can cook it |
+| `save_favorite` | Saves a recipe to the favorites database, only when the user asks |
+| `list_favorites` | Lists saved recipes |
+| `get_favorite` | Loads one saved recipe so you can cook it |
 
 Deleting a favorite is intentionally not a chef tool. It's a deliberate action done with the delete button in the UI, because a chat model can misread "get rid of that" and the delete can't be undone.
 
@@ -175,11 +181,17 @@ Deleting a favorite is intentionally not a chef tool. It's a deliberate action d
 
 | Method | Path | What it does |
 |---|---|---|
-| POST | `/chat` | Send a message; returns the reply and a `session_id`. Omit `session_id` to start a new conversation |
-| GET | `/favorites` | List saved recipes |
-| DELETE | `/favorites/{id}` | Delete a saved recipe (404 if it doesn't exist) |
+| POST | `/chat/stream` | Streams the reply as text; the session id comes back in the `X-Session-Id` header. Omit `session_id` to start a new conversation |
+| POST | `/chat` | Same conversation, but returns the full reply as JSON |
+| GET | `/history/{session_id}` | The readable messages of a saved conversation |
+| GET | `/conversations` | Saved conversations, newest first, titled by the opening message |
+| DELETE | `/conversations/{session_id}` | Deletes a saved conversation |
+| GET | `/favorites` | Lists saved recipes |
+| DELETE | `/favorites/{id}` | Deletes a saved recipe |
 
-Conversation history is kept in the server's memory, one list per `session_id`, so it resets when the server restarts. Favorites are stored in SQLite and persist.
+### Persistence
+
+Every message, including tool calls and tool results, is stored in a SQLite `messages` table, one row per message, grouped by session id. The server keeps active conversations in memory and rebuilds a conversation from the database when it sees an id it doesn't have, so chats survive restarts. The UI keeps the session id in the page URL, so a reload returns to the same chat. Favorites live in their own table.
 
 ---
 
@@ -191,7 +203,9 @@ Conversation history is kept in the server's memory, one list per `session_id`, 
 | Empty reply or `NON-TEXT: audio/...` | The model is an audio or image model. Pick a text model. |
 | `504 deadline exceeded` | Retry, or try a lighter "flash-lite" model. |
 | UI says the server is having issues | Check that `uvicorn server:app --reload` is running in the other terminal. |
-| Chef forgets the conversation after a backend restart | Expected: sessions live in memory. Favorites are not affected. |
+| `405 Method Not Allowed` | The UI is sending a request to a route that doesn't accept it. Check the URL constants at the top of `ui.py`. |
+| Chats or favorites missing | Start uvicorn from the project folder; the database file is created relative to where it runs. |
+| Reply appears all at once | Short replies arrive in only a few chunks. Ask for a long recipe to see the streaming. |
 | `ImportError: cannot import name ...` | Save all files and check the names match exactly. |
 | `KeyError` when a tool is called | The tool isn't listed in the `TOOLS` dictionary in `tools.py`. |
 
@@ -200,6 +214,6 @@ Conversation history is kept in the server's memory, one list per `session_id`, 
 ## Roadmap
 
 - [x] **V1:** Terminal chef with conversation, cooking mode, and favorites
-- [x] **V2:** FastAPI backend and Streamlit chat UI with a favorites sidebar and delete
+- [x] **V2:** FastAPI backend and Streamlit chat UI with favorites, saved conversations, and streaming replies
 - [ ] **V3:** Full-stack web app with React/Next.js and Tailwind on the same backend
-- [ ] **Ideas:** persistent sessions, streaming replies, pantry tracking, dietary preferences, timers, voice
+- [ ] **Ideas:** pantry tracking, dietary preferences, timers, voice, a confirm step before deletes
