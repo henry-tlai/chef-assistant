@@ -20,3 +20,15 @@ def ask_model(history, system_prompt, tools=None):
         ),
     )
     return response.candidates[0].content
+
+def ask_model_stream(history, system_prompt, tools=None):
+    """yields chunks as the model writes them."""
+    return client.models.generate_content_stream(                    
+        model=MODEL,
+        contents=history,
+        config=types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            tools=tools,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+        ),
+    )
