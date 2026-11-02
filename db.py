@@ -78,6 +78,14 @@ def list_conversations():
         """).fetchall()
     return rows
 
+def delete_conversation(session_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.execute(
+            "DELETE FROM messages WHERE session_id = ?", 
+            (session_id,),
+        )
+    return cur.rowcount > 0
+
 if __name__ == "__main__":
     init_db()
     print(list_favorites())
