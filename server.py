@@ -1,7 +1,8 @@
 from uuid import uuid4
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from agent import chat
+from agent import chat, chat_stream
 from db import init_db, list_favorites, delete_favorite, save_messages, load_messages, list_conversations, delete_conversation
 from google.genai import types
 
@@ -39,6 +40,29 @@ def chat_endpoint(req: ChatRequest):
     save_messages(session_id, [m.model_dump_json(exclude_none=True) for m in new_messages])  
 
     return ChatResponse(reply=reply, session_id=session_id)
+
+@app.post("/chat/stream")
+def chat_stream_endpoint(req: ChatRequest):
+    session_id = req.session_id or str(uuid4())
+
+    if session_id not in sessions:
+        saved = load_messages(session_id)
+        sessions[session_id] = [types.Content.model_validate_json(s) for s in saved]
+
+    history = sessions[session_id]
+    count_before = len(history)
+
+    def generate():
+        for piece in chat_stream(history, req.message):
+            yield piece                                   
+        new_messages = history[count_before:]
+        save_messages(session_id, [m.model_dump_json(exclude_none=True) for m in new_messages])
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/plain; charset=utf-8",
+        headers={"X-Session-Id": session_id},              
+    )
 
 @app.get("/favorites")
 def favorites_endpoint():
