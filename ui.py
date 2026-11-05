@@ -24,6 +24,8 @@ if "session_id" not in st.session_state:
     st.session_state.session_id = st.query_params.get("session")
     if st.session_state.session_id:
         st.session_state.messages = load_history(st.session_state.session_id)
+if "pending_delete" not in st.session_state:
+    st.session_state.pending_delete = None
 
 with st.sidebar:
     if st.button("New chat"):
@@ -69,15 +71,27 @@ with st.sidebar:
         st.caption("Can't reach the server.")
 
     for f in favs:
-        col_title, col_btn = st.columns([4, 1])
-        col_title.write(f"{f['title']}")
-        if col_btn.button("x", key=f"dSel_{f['id']}"):
-            try:
-                r = requests.delete(f"{FAV_URL}/{f['id']}", timeout=10)
-                r.raise_for_status()
-            except requests.RequestException:
-                st.error("Couldn't delete that one.")
-            else:
+        marker = ("fav", f["id"])
+        if st.session_state.pending_delete == marker:               
+            st.write(f"Delete \"{f['title']}\"?")
+            col_yes, col_no = st.columns(2)
+            if col_yes.button("Yes", key=f"yes_fav_{f['id']}"):
+                try:
+                    r = requests.delete(f"{FAV_URL}/{f['id']}", timeout=10)
+                    r.raise_for_status()
+                except requests.RequestException:
+                    st.error("Couldn't delete that one.")
+                else:
+                    st.session_state.pending_delete = None         
+                    st.rerun()
+            if col_no.button("Cancel", key=f"no_fav_{f['id']}"):
+                st.session_state.pending_delete = None            
+                st.rerun()
+        else:
+            col_title, col_btn = st.columns([4, 1])
+            col_title.write(f["title"])
+            if col_btn.button("x", key=f"dSel_{f['id']}"):
+                st.session_state.pending_delete = marker
                 st.rerun()
 
 # Redraw the conversation so far
