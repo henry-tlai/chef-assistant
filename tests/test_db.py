@@ -24,3 +24,9 @@ def test_delete_favorite(temp_db):
 def test_messages_come_back_in_order(temp_db):
     db.save_messages("s1", ["first", "second", "third"])
     assert db.load_messages("s1") == ["first", "second", "third"]
+
+def test_delete_conversation(temp_db):
+    db.save_messages("s1", ["first", "second", "third"])
+    db.save_messages("s2", ["fourth", "fifth", "sixth"])
+    db.delete_conversation("s1")
+    assert db.load_messages("s1") == []
