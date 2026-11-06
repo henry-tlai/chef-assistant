@@ -1,0 +1,5 @@
+# Project Docs
+
+These documents describe the Chef Assistant project: what was built at each checkpoint, how the pieces fit together, why the major choices were made, and what went wrong along the way.
+
+A good reading order is the checkpoint for the version you care about, followed by the architecture document for the big picture. `checkpoint_v1.md` covers the terminal chef with a hand-written agent loop, tools, and SQLite favorites. `checkpoint_v2.md` covers the FastAPI backend, the Streamlit interface, saved conversations, and streaming replies. `architecture.md` explains the files, the request flow, the data model, and the endpoints. `decisions.md` records each major choice and its tradeoffs, `debugging-log.md` collects the real problems hit during the build with their causes and fixes, `testing.md` explains the pytest setup and what the tests cover, and `git-workflow.md` describes the atomic commit habits and Git lessons from the project.
