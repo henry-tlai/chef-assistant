@@ -53,8 +53,12 @@ def chat_stream_endpoint(req: ChatRequest):
     count_before = len(history)
 
     def generate():
-        for piece in chat_stream(history, req.message):
-            yield piece                                   
+        try:
+            for piece in chat_stream(history, req.message):
+                yield piece
+        except Exception:
+            del history[count_before:]              
+            raise
         new_messages = history[count_before:]
         save_messages(session_id, [m.model_dump_json(exclude_none=True) for m in new_messages])
 
