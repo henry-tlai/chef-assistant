@@ -12,21 +12,26 @@ def save_favorite(title: str, recipe: str) -> str:
 
 
 def list_favorites() -> str:
-    """List the recipes the user has saved as favorites. Use this when the
-    user asks what they've saved or wants to see their favorites."""
+    """List the recipes the user has saved as favorites, by name. Use this when
+    the user asks what they've saved or wants to see their favorites."""
     rows = db.list_favorites()
     if not rows:
         return "No favorites saved yet."
-    return "\n".join(f"{row_id}. {title}" for row_id, title in rows)
+    return "\n".join(f"- {title}" for _, title in rows)
 
-def get_favorite(favorite_id: int) -> str:
-    """Loads the full recipe for one saved favorite recipe. Use this when the user wants to open a saved recipe. 
-    For example, "lets cook number 2". Then the favorite_id is from the numbered list that list_favorites show"""
-    row = db.get_favorite(favorite_id)
-    if row is None:
-        return f"No favorite found with number {favorite_id}. Double-check your favorites list!"
-    title, recipe = row
-    return f"{title}\n\n{recipe}"
+
+def get_favorite(title: str) -> str:
+    """Load the full recipe for one saved favorite. Use this when the user wants
+    to open, view, or cook a saved recipe, for example "let's cook the steak".
+    title is the name of the recipe, or part of it, as the user said it."""
+    matches = db.find_favorite(title)
+    if not matches:
+        return f"No favorite found matching '{title}'. Suggest the user check their favorites list."
+    if matches:                                                 
+        names = ", ".join(t for t, _ in matches)
+        return f"Several favorites match: {names}. Ask the user which one they mean."
+    found_title, recipe = matches                               
+    return f"{found_title}\n\n{recipe}"
 
 
 TOOLS = {
