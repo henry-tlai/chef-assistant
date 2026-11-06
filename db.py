@@ -49,6 +49,14 @@ def delete_favorite(favorite_id):
         )
     return cur.rowcount > 0
 
+def find_favorite(query):
+    with sqlite3.connect(DB_PATH) as conn:
+        rows = conn.execute(
+            "SELECT title, recipe FROM favorites WHERE LOWER(title) LIKE ?",
+            (f"%{query}%".lower(),),                              
+        ).fetchall()
+    return rows
+
 def save_messages(session_id, json_messages):
     with sqlite3.connect(DB_PATH) as conn:
         conn.executemany(
@@ -59,7 +67,7 @@ def save_messages(session_id, json_messages):
 def load_messages(session_id):
     with sqlite3.connect(DB_PATH) as conn:
         rows = conn.execute(
-            "SELECT content FROM messages WHERE session_id = ? ORDER BY id",   # blank 2
+            "SELECT content FROM messages WHERE session_id = ? ORDER BY id",   
             (session_id,),
         ).fetchall()
     return [row[0] for row in rows]
@@ -88,8 +96,3 @@ def delete_conversation(session_id):
 
 if __name__ == "__main__":
     init_db()
-    print(list_favorites())
-    print(get_favorite(1))
-    print(get_favorite(999))
-    save_messages("test", ['{"a": 1}', '{"b": 2}'])
-    print(load_messages("test"))
