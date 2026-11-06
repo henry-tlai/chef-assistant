@@ -123,7 +123,12 @@ if user_input:
     st.query_params["session"] = st.session_state.session_id
 
     with st.chat_message("assistant"):
-        reply = st.write_stream(response.iter_content(chunk_size=None, decode_unicode=True))                        
+        try:
+            reply = st.write_stream(response.iter_content(chunk_size=None, decode_unicode=True))
+        except requests.RequestException:
+            st.error("The reply was interrupted. Your message wasn’t saved, so please send it again.")                            
+            st.session_state.messages.pop()          
+            st.stop()
 
     st.session_state.messages.append({"role": "assistant", "content": reply})
     st.rerun()
