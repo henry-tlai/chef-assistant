@@ -5,9 +5,18 @@ from pydantic import BaseModel
 from agent import chat, chat_stream
 from db import init_db, list_favorites, delete_favorite, save_messages, load_messages, list_conversations, delete_conversation
 from google.genai import types
+from fastapi.middleware.cors import CORSMiddleware
 
 init_db()
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-Session-Id"],      
+)
 
 sessions = {}   # session_id -> that conversation's history list
 TITLE_LENGTH = 30
